@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "camino"
+version = "0.1.0"
+description = "CAMINO is a Python package for modelling and inferring wavefront aberrations from JWST/NIRCam observations."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "rayshrish" }]
+keywords = [
+  "python",
+  "jax",
+  "autodiff",
+  "optics",
+  "wavefront",
+  "jwst",
+  "nircam",
+  "camino",
+]
+dependencies = [
+  "numpy>=1.24",
+  "scipy>=1.10",
+  "astropy>=5.0",
+  "jax>=0.4",
+  "pandas>=1.5",
+  "equinox>=0.10",
+  "zodiax>=0.5",
+  "dLux>=0.16",
+]
+
+[project.optional-dependencies]
+tests = [
+  "pytest",
+  "pytest-cov",
+]
+
+dev = [
+  "pytest",
+  "pytest-cov",
+  "black",
+  "ruff",
+  "pre-commit",
+  "zensical",
+  "mkdocstrings-python",
+  "mike",
+  "nbconvert",
+  "jupyter",
+]
+
+[tool.setuptools]
+py-modules = ["camino", "abcdlux_patch"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = [
+  "E402",
+  "E731",
+  "E741",
+  "F722",
+  "I001",
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+lines-after-imports = 2

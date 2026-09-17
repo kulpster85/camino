@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Docs build artifacts
+site/
+docs/API/
+docs/examples/*_files/
+
+# Jupyter
+.ipynb_checkpoints/

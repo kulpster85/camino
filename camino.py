@@ -1,32 +1,41 @@
 #camino: Computational Aberration Modelling and Inference for NIRCam Observations
-from __future__ import annotations
 
-print('Loading camino module...')
+"""Core implementation for CAMINO.
 
+This module contains the public optics, fitting, and JWST/NIRCam analysis helpers
+used by the project. The imports are grouped into standard-library, third-party,
+and local modules for readability.
+"""
 
-### Basic imports
-###############################################################################
-plot_flag=0
+import glob
+import os
+import re
+import time
+from importlib.resources import files
+from pathlib import Path
 
-from jax import Array
-
-import jax
-jax.config.update("jax_enable_x64", True)
 import astropy.io.fits as fits
+import jax
+import jax.nn as jnn
+import jax.numpy as jnp
+import jax.scipy as jsp
+import numpy as onp
+import pandas as pd
+from jax import Array, lax
+from jax.flatten_util import ravel_pytree
+from jax.scipy.ndimage import map_coordinates
+from scipy.ndimage import center_of_mass, gaussian_filter, shift as ndi_shift
 
 import dLux as dl
+import dLux.utils as dlu
 
-if plot_flag==1:
+jax.config.update("jax_enable_x64", True)
+
+plot_flag = 0
+if plot_flag == 1:
     import matplotlib.pyplot as plt
     from matplotlib import colormaps, colors
 
-from jax.flatten_util import ravel_pytree
-from importlib.resources import files
-
-import pandas as pd
-
-#matplotlib inline
-if plot_flag==1:
     plt.rcParams["image.cmap"] = "inferno"
     plt.rcParams["font.family"] = "serif"
     plt.rcParams["image.origin"] = "lower"
@@ -35,22 +44,6 @@ if plot_flag==1:
     seismic = colormaps["seismic"]
     inferno.set_bad("k", 0.5)
     seismic.set_bad("k", 0.5)
-
-import jax.numpy as jnp
-from jax.scipy.ndimage import map_coordinates
-
-import dLux.utils as dlu
-
-from scipy.ndimage import gaussian_filter, shift as ndi_shift, center_of_mass
-
-import re
-import os
-import time
-import glob
-import numpy as onp
-from astropy.io import fits
-
-from functools import partial
 
 ###############################################################################
 
@@ -245,10 +238,6 @@ def _stage(msg: str, tprev: float | None):
     else:
         print(f"\n== {msg} ==  (+{now - tprev:.2f}s)")
     return now
-
-
-import numpy as onp
-from scipy.ndimage import gaussian_filter, center_of_mass
 
 
 def extract_cutout(img, center, size, fill_value=None):
@@ -542,16 +531,10 @@ def err_poisson_dn(expected_dn=None,
 
 import equinox as eqx
 import zodiax as zdx
+from dataclasses import dataclass
+from typing import Any
 
 from dLux.layers.optical_layers import OpticalLayer
-
-from dataclasses import dataclass
-from typing import Any, Optional, Union
-
-import jax
-import jax.numpy as jnp
-from jax.scipy.ndimage import map_coordinates
-
 
 Array = jax.Array
 
@@ -691,11 +674,6 @@ def pix2arr(coords, pscale=1):
     n = coords.shape[-1]
     shift = (n - 1) / 2
     return (coords / pscale) + shift
-
-import jax
-import jax.numpy as jnp
-
-Array = jax.Array
 
 def map_coordinates_2d(
     image: Array,
@@ -900,22 +878,9 @@ def exposure_from_defocus_file(fname, fit, threshold=12000, crop=128):
     return NIRCamExposure(filename, name, filter, data, mjd, err, fit, bad)
 
 from abc import abstractmethod
-from typing import Optional
-
-import jax.numpy as np
-from jax import lax
-import numpy as onp
-import jax.scipy as jsp
-import jax.nn as jnn
-
-
-from functools import partial
 
 # --- keep these names distinct ---
-import jax.numpy as jnp
-import numpy as onp
 
-# ... your earlier imports (jax, eqx, jsp, etc.) ...
 
 def calc_throughput(filt, nwavels=1):
 
@@ -971,9 +936,6 @@ class NonNormalisedClippedPolySpectrum:
             inten = jnp.clip(inten, 0.0, None)
         return inten
 
-
-from typing import Optional
-import equinox as eqx
 
 class ModelFit(zdx.Base):
 
@@ -1065,9 +1027,6 @@ def update_optics(self, model, exposure):
 
     return optics
 
-
-
-import jax.numpy as jnp
 
 LOG10 = jnp.log(10.0)
 

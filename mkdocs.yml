@@ -1,0 +1,76 @@
+site_name: camino documentation
+docs_dir: docs/
+site_description: Documentation for CAMINO, a Python package for modelling and inferring wavefront aberrations from JWST/NIRCam observations.
+site_author: rayshrish
+site_url: https://rayshrish.github.io/camino/
+repo_url: https://github.com/rayshrish/camino
+repo_name: rayshrish/camino
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.top
+    - navigation.indexes
+    - content.code.copy
+    - toc.integrate
+    - content.action.edit
+    - content.action.view
+  palette:
+    - scheme: default
+      primary: amber
+      accent: orange
+      toggle:
+        icon: lucide/sun
+        name: Switch to dark mode
+    - scheme: slate
+      primary: amber
+      accent: orange
+      toggle:
+        icon: lucide/moon
+        name: Switch to light mode
+
+validation:
+  unresolved_references: false
+
+strict: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: "numpy"
+            show_root_heading: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.snippets:
+      base_path: [".", "docs"]
+  - pymdownx.arithmatex:
+      generic: true
+  - toc:
+      permalink: "¤"
+      toc_depth: 2
+  - attr_list
+  - md_in_html
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+extra:
+  version:
+    provider: mike
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Concepts & Workflow: concepts.md
+  - Worked Example: examples/worked_example.md
+  - API:
+      - Overview: API/overview.md
