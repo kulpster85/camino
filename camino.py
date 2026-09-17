@@ -50,6 +50,53 @@ if plot_flag == 1:
     inferno.set_bad("k", 0.5)
     seismic.set_bad("k", 0.5)
 
+__all__ = [
+    "apply_shear",
+    "apply_pupil_shear",
+    "eval_poly_log10",
+    "radial_zoom",
+    "apply_pupil_curvature",
+    "gaussian_blur_fft",
+    "extract_cutout",
+    "estimate_center",
+    "cutout_around_defocused_psf_multi",
+    "cutout_around_defocused_psf",
+    "arr2pix",
+    "pix2arr",
+    "map_coordinates_2d",
+    "Rotate",
+    "JWSTPrimary",
+    "ApplySensitivities",
+    "PixelAnisotropy",
+    "NIRCamExposure",
+    "exposure_from_defocus_file",
+    "get_pupil",
+    "calc_throughput",
+    "NonNormalisedClippedPolySpectrum",
+    "ModelFit",
+    "SinglePointFilterFit",
+    "BaseModeller",
+    "ModelParams",
+    "set_array",
+    "transfer_fn",
+    "transfer",
+    "plane_to_plane",
+    "err_poisson_dn",
+    "check_convergence_from_file",
+    "check_poly_vs_mono",
+    "weights_used_by_fit",
+    "is_curve_not_flat",
+    "fft_log",
+    "solve_flux_bg_weighted_jax_nansafe",
+    "scale_poisson_no_bg",
+    "scale_ls_const_bg_unweighted",
+    "make_gaussian_kernel1d",
+    "separable_gaussian_blur_reflect",
+    "gaussian_smooth_nan_jax_static",
+    "tv_norm",
+    "l2_smooth",
+]
+
 ###############################################################################
 
 
@@ -468,14 +515,14 @@ def _find_existing_cals(download_dir: str, want_prefix: str, det_tag: str | None
 
 
 def transfer_fn_old(coords, npixels, wavelength, pscale, distance):
-    """Legacy transfer function retained only for reference; not used by current models."""
+    """Legacy transfer-function reference that is intentionally not part of the public API."""
     scaling = npixels * pscale**2
     rho_sq = ((coords / scaling) ** 2).sum(0)
     return _fftshift(jnp.exp(-1.0j * jnp.pi * wavelength * distance * rho_sq))
 
 
 def transfer_fn_patched(coords, npixels, wavelength, pscale, distance):
-    """Historical patched variant with a cycle-based quadratic phase conversion."""
+    """Legacy patched transfer-function variant retained only for historical comparison."""
     scaling = npixels * pscale**2
     rho_sq = ((coords / scaling) ** 2).sum(0)
     rho_sq_cycles = rho_sq / (2.0 * jnp.pi) ** 2
@@ -483,7 +530,7 @@ def transfer_fn_patched(coords, npixels, wavelength, pscale, distance):
 
 
 def transfer_fn(coords, npixels, wavelength, pscale, distance):
-    """Evaluate the Fourier-domain Fresnel-like transfer kernel for a wavefront."""
+    """Evaluate the active Fourier-domain transfer kernel used for the current propagation model."""
     del npixels, pscale
     rho_sq = (coords**2).sum(0)
     return _fftshift(jnp.exp(-1.0j * jnp.pi * wavelength * distance * rho_sq))

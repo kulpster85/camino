@@ -24,6 +24,13 @@ def test_jacfwd_returns_jax_array():
     assert jac.shape == (2,)
 
 
+def test_public_api_excludes_legacy_transfer_helpers():
+    assert hasattr(camino, "__all__")
+    assert "transfer_fn" in camino.__all__
+    assert "transfer_fn_old" not in camino.__all__
+    assert "transfer_fn_patched" not in camino.__all__
+
+
 def test_jwst_primary_normalises_with_jax_norm():
     wavefront = type("Wavefront", (), {})()
     wavefront.amplitude = jnp.array([3.0, 4.0], dtype=jnp.float32)

@@ -52,8 +52,6 @@ MODULE_GROUPS = {
         (
             "propagation",
             [
-                "transfer_fn_old",
-                "transfer_fn_patched",
                 "transfer_fn",
                 "transfer",
                 "plane_to_plane",
@@ -159,6 +157,19 @@ TITLE_MAP = {
 
 def parse_public_symbols(module_path: Path) -> set[str]:
     tree = ast.parse(module_path.read_text(encoding="utf-8"), filename=str(module_path))
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets = [
+                target.id for target in node.targets if isinstance(target, ast.Name)
+            ]
+            if "__all__" in targets:
+                try:
+                    value = ast.literal_eval(node.value)
+                except (ValueError, TypeError):
+                    value = None
+                if isinstance(value, (list, tuple)):
+                    return {str(name) for name in value}
+
     names: set[str] = set()
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
