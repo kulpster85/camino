@@ -33,6 +33,9 @@ jobs:
           python -m pip install ".[dev]"
           python -m pip install mkdocs mkdocs-material mkdocstrings-python
 
+      - name: Generate API documentation pages
+        run: python docs/scripts/generate_api_mds.py
+
       - name: Build documentation
         run: mkdocs build --strict
 
