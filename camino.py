@@ -7,10 +7,13 @@ used by the project. The imports are grouped into standard-library, third-party,
 and local modules for readability.
 """
 
+import functools
 import re
+import warnings
 from abc import abstractmethod
 from dataclasses import dataclass
 from importlib.resources import files
+from pathlib import Path
 from typing import Any
 
 import astropy.io.fits as fits
@@ -298,10 +301,12 @@ def extract_cutout(img, center, size, fill_value=None):
     img = onp.asarray(img)
     y0, x0 = center
     y0i, x0i = int(round(y0)), int(round(x0))
-    half = size // 2
+    # Asymmetric halves so odd sizes still return exactly `size` pixels.
+    half_lo = size // 2
+    half_hi = size - half_lo
 
-    y1, y2 = y0i - half, y0i + half
-    x1, x2 = x0i - half, x0i + half
+    y1, y2 = y0i - half_lo, y0i + half_hi
+    x1, x2 = x0i - half_lo, x0i + half_hi
 
     if fill_value is None:
         fill_value = onp.nanmedian(img)
@@ -449,9 +454,11 @@ def cutout_around_defocused_psf(img, size=128, smooth_sigma=2.0, thresh_sigma=5.
     # Integer center for cutout indexing
     y0i, x0i = int(round(y0)), int(round(x0))
 
-    half = size // 2
-    y1, y2 = y0i - half, y0i + half
-    x1, x2 = x0i - half, x0i + half
+    # Asymmetric halves so odd sizes still return exactly `size` pixels.
+    half_lo = size // 2
+    half_hi = size - half_lo
+    y1, y2 = y0i - half_lo, y0i + half_hi
+    x1, x2 = x0i - half_lo, x0i + half_hi
 
     # Pad if near edges
     pad_y1 = max(0, -y1)
@@ -812,7 +819,12 @@ class PixelAnisotropy(dl.layers.detector_layers.DetectorLayer):
     transform: dl.CoordTransform
     order: int
 
-    def __init__(self, order=3):
+    def __init__(self, order=1):
+        if int(order) not in (0, 1):
+            raise ValueError(
+                "PixelAnisotropy supports order 0 (nearest) or 1 (linear), "
+                f"got {order}."
+            )
         self.transform = dl.CoordTransform(compression=jnp.ones(2, dtype=jnp.float64))
         self.order = int(order)
 
@@ -840,7 +852,7 @@ class NIRCamExposure(zdx.Base):
     filename: str = eqx.field(static=True)
     target: str = eqx.field(static=True)
     filter: str = eqx.field(static=True)
-    mjd: str = eqx.field(static=True)
+    mjd: float | None = eqx.field(static=True)
     data: Array
     err: Array
     bad: Array
@@ -914,24 +926,84 @@ def exposure_from_defocus_file(fname, fit, threshold=12000, crop=128):
 
     filename = f"{obs_id}|{pupil}"
     name = obs_id
-    filter_name = "F212N"
-    mjd = hdr["DATE"]
+    filter_name = str(hdr.get("FILTER", "")).strip().upper()
+    if not filter_name:
+        warnings.warn(
+            f"No FILTER keyword found in {fname}; assuming F212N.",
+            stacklevel=2,
+        )
+        filter_name = "F212N"
+    mjd = _header_mjd(hdr)
 
     return NIRCamExposure(filename, name, filter_name, data, mjd, err, fit, bad)
 
 
-def calc_throughput(filt, nwavels=1):
-    """Return wavelength bins and normalised throughput weights for a filter."""
-    del filt
-    try:
-        file_path = str(files("amigo").joinpath("data/filters/F212N.dat"))
-    except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency path
-        raise ModuleNotFoundError(
-            "The optional 'amigo' package is required for throughput tables. "
-            "Install it or provide a custom filter table."
-        ) from exc
+_FILTER_NAME_RE = re.compile(r"[A-Z0-9_+-]+")
 
-    wl_array, throughput_array = onp.loadtxt(file_path, unpack=True)
+_MJD_KEYWORDS = ("MJD-AVG", "EXPMID", "EXPSTART")
+
+
+def _header_mjd(hdr):
+    """Return the exposure MJD from the first usable keyword, or None if absent."""
+    for key in _MJD_KEYWORDS:
+        value = hdr.get(key)
+        if value is None or value == "":
+            continue
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _resolve_filter_file(filt, filters_dir=None):
+    """Return the throughput table path for a filter name."""
+    name = str(filt).strip().upper()
+    # Filter names come from FITS headers, so reject anything that could escape the directory.
+    if not _FILTER_NAME_RE.fullmatch(name):
+        raise ValueError(
+            f"Invalid filter name {filt!r}: expected only A-Z, 0-9, '_', '+' or '-'."
+        )
+
+    if filters_dir is not None:
+        directory = Path(filters_dir)
+    else:
+        try:
+            directory = Path(str(files("amigo").joinpath("data/filters")))
+        except ModuleNotFoundError as exc:  # pragma: no cover - optional dep
+            raise ModuleNotFoundError(
+                "The optional 'amigo' package is required for throughput tables. "
+                "Install it or pass filters_dir pointing at your own filter tables."
+            ) from exc
+
+    path = directory / f"{name}.dat"
+    if not path.is_file():
+        available = sorted(p.stem for p in directory.glob("*.dat"))
+        raise ValueError(
+            f"No throughput table for filter {name!r} in {directory}. "
+            f"Available filters: {available}"
+        )
+    return path
+
+
+@functools.lru_cache(maxsize=None)
+def _load_filter_table(path_str):
+    """Load a two-column filter table, cached because it is hit every forward model call."""
+    wl, tp = onp.loadtxt(path_str, unpack=True)
+    wl.setflags(write=False)
+    tp.setflags(write=False)
+    return wl, tp
+
+
+def calc_throughput(filt, nwavels=1, filters_dir=None):
+    """Return wavelength bins and normalised throughput weights for a filter.
+
+    Tables are two-column ``wavelength[Angstrom] throughput`` files, looked up as
+    ``{FILTER}.dat`` in `filters_dir` or in the optional ``amigo`` package data.
+    Returned wavelengths are in metres.
+    """
+    path = _resolve_filter_file(filt, filters_dir=filters_dir)
+    wl_array, throughput_array = _load_filter_table(str(path))
     wl = jnp.asarray(wl_array)
     tp = jnp.asarray(throughput_array)
 
@@ -1398,9 +1470,9 @@ def check_convergence_from_file(
         exp = exposure_from_defocus_file(fname, fit)  # new exposure with new fitter
 
         # ensure model sees correct pos/defocus/flux + shared OPD
-        inject_views_for_pupil(params, pup, exp)
+        injected = inject_views_for_pupil(params, pup, exp)
 
-        mdl = params.inject(model_defocus)
+        mdl = injected.inject(model_defocus)
         img = exp.fit(mdl, exp)
 
         # match your usual view
@@ -1464,6 +1536,8 @@ def check_poly_vs_mono(model, exposure, nw=20, plot=False, tol=1e-3, label=""):
     shaped = np.asarray((inten * filt) / (jnp.max(inten * filt) + 1e-12))
 
     if plot:
+        import matplotlib.pyplot as plt
+
         plt.figure(figsize=(6, 4))
         plt.plot(wv * 1e6, shaped, marker="o", label="spectrum × filter")
         plt.plot(

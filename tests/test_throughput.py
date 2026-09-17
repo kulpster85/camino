@@ -1,0 +1,67 @@
+"""Filter-aware throughput table lookup."""
+
+import numpy as np
+import pytest
+
+import camino
+
+
+def test_calc_throughput_dispatches_on_filter_name(filters_dir):
+    wv_212, _ = camino.calc_throughput("F212N", nwavels=4, filters_dir=filters_dir)
+    wv_480, _ = camino.calc_throughput("F480M", nwavels=4, filters_dir=filters_dir)
+
+    assert float(wv_212.mean()) == pytest.approx(2.12e-6, rel=1e-3)
+    assert float(wv_480.mean()) == pytest.approx(4.79e-6, rel=1e-3)
+    assert not np.allclose(np.asarray(wv_212), np.asarray(wv_480))
+
+
+@pytest.mark.parametrize("nwavels", [1, 3, 8])
+def test_calc_throughput_weights_are_normalised(filters_dir, nwavels):
+    wv, weights = camino.calc_throughput(
+        "F212N", nwavels=nwavels, filters_dir=filters_dir
+    )
+
+    assert wv.shape == (nwavels,)
+    assert weights.shape == (nwavels,)
+    assert float(weights.sum()) == pytest.approx(1.0)
+    assert bool((weights >= 0).all())
+
+
+def test_calc_throughput_is_case_insensitive(filters_dir):
+    _, lower = camino.calc_throughput("f212n", nwavels=3, filters_dir=filters_dir)
+    _, upper = camino.calc_throughput("F212N", nwavels=3, filters_dir=filters_dir)
+
+    np.testing.assert_allclose(np.asarray(lower), np.asarray(upper))
+
+
+def test_calc_throughput_unknown_filter_lists_available(filters_dir):
+    with pytest.raises(ValueError, match="F480M"):
+        camino.calc_throughput("F999W", nwavels=2, filters_dir=filters_dir)
+
+
+@pytest.mark.parametrize(
+    "name", ["../../etc/passwd", "F212N/../secret", "F212N.dat", "", "F212N F480M"]
+)
+def test_calc_throughput_rejects_unsafe_filter_names(filters_dir, name):
+    with pytest.raises(ValueError, match="Invalid filter name"):
+        camino.calc_throughput(name, nwavels=2, filters_dir=filters_dir)
+
+
+def test_filter_table_load_is_cached(filters_dir):
+    camino._load_filter_table.cache_clear()
+
+    camino.calc_throughput("F212N", nwavels=2, filters_dir=filters_dir)
+    camino.calc_throughput("F212N", nwavels=5, filters_dir=filters_dir)
+
+    info = camino._load_filter_table.cache_info()
+    assert info.misses == 1
+    assert info.hits == 1
+
+
+def test_cached_filter_table_is_read_only(filters_dir):
+    wl, tp = camino._load_filter_table(str(filters_dir / "F212N.dat"))
+
+    with pytest.raises(ValueError):
+        wl[0] = 0.0
+    with pytest.raises(ValueError):
+        tp[0] = 0.0
