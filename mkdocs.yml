@@ -70,3 +70,21 @@ nav:
   - Concepts & Workflow: concepts.md
   - Worked Example: examples/worked_example.md
   - Instructions: instructions.md
+
+  - API:
+    - CAMINO API:
+      - Image Ops: API/camino/image_ops.md
+      - Smoothing: API/camino/smoothing.md
+      - Layers: API/camino/layers.md
+      - Propagation: API/camino/propagation.md
+      - Exposures: API/camino/exposures.md
+      - Filters: API/camino/filters.md
+      - Fitting: API/camino/fitting.md
+      - Solvers: API/camino/solvers.md
+      - Diagnostics: API/camino/diagnostics.md
+    - ABCDLux patch API:
+      - Abcd Matrices: API/abcdlux_patch/abcd_matrices.md
+      - Coords: API/abcdlux_patch/coords.md
+      - Curvature: API/abcdlux_patch/curvature.md
+      - Mft: API/abcdlux_patch/mft.md
+      - Lct: API/abcdlux_patch/lct.md

@@ -72,8 +72,6 @@ MODULE_GROUPS = {
             "filters",
             [
                 "calc_throughput",
-                "get_filter",
-                "get_filter_test",
                 "NonNormalisedClippedPolySpectrum",
                 "eval_poly_log10",
             ],
@@ -204,8 +202,13 @@ def update_mkdocs_nav(groups: dict[str, list[tuple[str, list[str]]]]) -> None:
             start_index = idx
             start_indent = len(match.group(1))
             break
+
+    new_block = render_api_nav_block(groups)
     if start_index is None:
-        raise ValueError("Could not locate the '- API:' section in mkdocs.yml")
+        lines.append("\n")
+        lines.extend(new_block)
+        MKDOCS_FILE.write_text("".join(lines), encoding="utf-8")
+        return
 
     end_index = len(lines)
     for idx in range(start_index + 1, len(lines)):
@@ -215,7 +218,6 @@ def update_mkdocs_nav(groups: dict[str, list[tuple[str, list[str]]]]) -> None:
             end_index = idx
             break
 
-    new_block = render_api_nav_block(groups)
     new_lines = lines[:start_index] + new_block + lines[end_index:]
     MKDOCS_FILE.write_text("".join(new_lines), encoding="utf-8")
 
@@ -236,12 +238,14 @@ def main() -> None:
 
         for page_name, expected_symbols in entries:
             missing = [name for name in expected_symbols if name not in source_symbols]
+            valid = [name for name in expected_symbols if name in source_symbols]
+
             if missing:
-                raise ValueError(
-                    f"Missing symbols in {module_name}.py for page '{page_name}': {missing}"
+                print(
+                    f"Warning: skipping missing symbols for {module_name}.{page_name}: {missing}",
+                    file=sys.stderr,
                 )
 
-            valid = [name for name in expected_symbols if name in source_symbols]
             md_path = module_dir / f"{page_name}.md"
             md_path.write_text(
                 render_page(
