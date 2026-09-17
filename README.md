@@ -1,8 +1,8 @@
 # camino
 [![PyPI version](https://badge.fury.io/py/jwst-camino.svg)](https://badge.fury.io/py/jwst-camino)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Docs](https://img.shields.io/badge/docs-MkDocs%20Material-blue)](https://benjaminpope.github.io/camino/)
-[![CI](https://github.com/benjaminpope/camino/actions/workflows/documentation.yml/badge.svg)](https://github.com/benjaminpope/camino/actions/workflows/documentation.yml)
+[![Docs](https://img.shields.io/badge/docs-MkDocs%20Material-blue)](https://rayshrish.github.io/camino/)
+[![CI](https://github.com/rayshrish/camino/actions/workflows/documentation.yml/badge.svg)](https://github.com/rayshrish/camino/actions/workflows/documentation.yml)
 
 CAMINO is a JAX-based package for modelling and inferring wavefront aberrations and JWST/NIRCam PSF behaviour.
 
