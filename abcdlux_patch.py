@@ -13,18 +13,22 @@ import dLux.utils as dlu
 # ABCD matrices
 # ============================================================
 
+
 def abcd_surface_power(power: float | Array) -> Array:
     p = np.asarray(power).reshape(())
     M = np.eye(2, dtype=p.dtype)
     M = M.at[1, 0].set(-p)
     return M
 
+
 def abcd_lens(focal_length: float | Array) -> Array:
     f = np.asarray(focal_length).reshape(())
     return abcd_surface_power(1.0 / f)
 
+
 def abcd_mirror(radius: float) -> Array:
     return abcd_surface_power(2.0 / radius)
+
 
 def abcd_free_space(z: float | Array) -> Array:
     z = np.asarray(z).reshape(())  # force scalar (0-d)
@@ -32,8 +36,10 @@ def abcd_free_space(z: float | Array) -> Array:
     M = M.at[0, 1].set(z)
     return M
 
+
 def abcd_fraunhofer(focal_length: float) -> Array:
     return np.array([[0.0, focal_length], [-1.0 / focal_length, 0.0]])
+
 
 def compose_abcd(matrices: list | tuple) -> Array:
     M = np.eye(2)
@@ -46,11 +52,13 @@ def compose_abcd(matrices: list | tuple) -> Array:
 # Coord specs (single-file version of coords.py)
 # ============================================================
 
+
 def unpack_size(N: int | tuple[int, int]) -> tuple[int, int]:
     if isinstance(N, tuple):
         Nx, Ny = N
         return int(Nx), int(Ny)
     return int(N), int(N)
+
 
 def unpack_scale(d: float | tuple) -> tuple[float, float]:
     if isinstance(d, tuple):
@@ -59,36 +67,58 @@ def unpack_scale(d: float | tuple) -> tuple[float, float]:
     val = float(d)
     return val, val
 
+
 def _is_size_like(obj) -> bool:
     if isinstance(obj, int):
         return True
-    if isinstance(obj, tuple) and len(obj) == 2 and all(isinstance(v, int) for v in obj):
+    if (
+        isinstance(obj, tuple)
+        and len(obj) == 2
+        and all(isinstance(v, int) for v in obj)
+    ):
         return True
     if hasattr(obj, "shape") and getattr(obj, "shape") == ():
         return True
-    if isinstance(obj, tuple) and len(obj) == 2 and all(hasattr(v, "shape") and v.shape == () for v in obj):
+    if (
+        isinstance(obj, tuple)
+        and len(obj) == 2
+        and all(hasattr(v, "shape") and v.shape == () for v in obj)
+    ):
         return True
     return False
+
 
 def _is_scale_like(obj) -> bool:
     if isinstance(obj, (int, float)):
         return True
-    if isinstance(obj, tuple) and len(obj) == 2 and all(isinstance(v, (int, float)) for v in obj):
+    if (
+        isinstance(obj, tuple)
+        and len(obj) == 2
+        and all(isinstance(v, (int, float)) for v in obj)
+    ):
         return True
     if hasattr(obj, "shape") and getattr(obj, "shape") == ():
         return True
-    if isinstance(obj, tuple) and len(obj) == 2 and all(hasattr(v, "shape") and v.shape == () for v in obj):
+    if (
+        isinstance(obj, tuple)
+        and len(obj) == 2
+        and all(hasattr(v, "shape") and v.shape == () for v in obj)
+    ):
         return True
     return False
+
 
 def unpack_coords(coords: Array | tuple) -> tuple[Array, Array]:
     # Avoid isinstance(coords, Array) fragility: just check "ndim"
     if hasattr(coords, "ndim"):
         if coords.ndim != 1:
-            raise ValueError(f"unpack_coords: Array coords must be 1D, got shape={coords.shape}.")
+            raise ValueError(
+                f"unpack_coords: Array coords must be 1D, got shape={coords.shape}."
+            )
         return coords, coords
     x, y = coords
     return x, y
+
 
 def unpack_coord_spec(spec: Array | tuple) -> tuple[Array, Array]:
     # Case: explicit array -> symmetric x=y
@@ -117,22 +147,32 @@ def unpack_coord_spec(spec: Array | tuple) -> tuple[Array, Array]:
 # Curvature helpers (single-file subset of curvature.py)
 # ============================================================
 
+
 def r2_coords(spec_in: Array | tuple) -> Array:
     x, y = unpack_coord_spec(spec_in)
     return (y**2)[:, None] + (x**2)[None, :]
 
+
 def quad_phase(coords: Array | tuple, lam: float, curv: float | Array) -> Array:
     return np.exp(1j * np.pi * curv * r2_coords(coords) / lam)
 
-def apply_curv(u: Array, coords: Array | tuple, lam: float, curv: float | Array) -> Array:
+
+def apply_curv(
+    u: Array, coords: Array | tuple, lam: float, curv: float | Array
+) -> Array:
     return u * quad_phase(coords, lam, curv)
 
-def remove_curv(u: Array, coords: Array | tuple, lam: float, curv: float | Array) -> Array:
+
+def remove_curv(
+    u: Array, coords: Array | tuple, lam: float, curv: float | Array
+) -> Array:
     return u * quad_phase(coords, lam, curv).conj()
+
 
 def propagate_curv(ABCD: Array, curv_in: float | Array) -> Array:
     a, b, c, d = ABCD.flatten()
     return (c + d * curv_in) / (a + b * curv_in)
+
 
 def residual_abcd(ABCD: Array, curv_in: float, curv_out: float) -> Array:
     a, b, c, d = ABCD.flatten()
@@ -141,11 +181,13 @@ def residual_abcd(ABCD: Array, curv_in: float, curv_out: float) -> Array:
     c_res = (a_res * d_res - 1.0) / b
     return np.array([[a_res, b], [c_res, d_res]])
 
+
 def residual_curv_cancel(ABCD: Array):
     a, b, c, d = ABCD.flatten()
-    curv_in  = -a / b
-    curv_out =  d / b
+    curv_in = -a / b
+    curv_out = d / b
     return curv_in, curv_out
+
 
 def factorise_curv(
     ABCD: Array,
@@ -174,15 +216,20 @@ def factorise_curv(
 # MFT (single-file version of mft.py)
 # ============================================================
 
+
 def _mft_kernel_1d(x_in: Array, x_out: Array, alpha: float, weight: float) -> Array:
     phase = alpha * (x_out[:, None] * x_in[None, :])
     return np.exp(1j * phase) * weight
 
-def mft(u: Array, Kx: Array, Ky: Array, left_conj: bool = False, right_conj: bool = False) -> Array:
+
+def mft(
+    u: Array, Kx: Array, Ky: Array, left_conj: bool = False, right_conj: bool = False
+) -> Array:
     Kx_eff = Kx.conj() if right_conj else Kx
     Ky_eff = Ky.conj() if left_conj else Ky
     tmp = u @ Kx_eff.T
     return Ky_eff @ tmp
+
 
 def mft_kernels(
     spec_in: Array | tuple,
@@ -210,6 +257,7 @@ def mft_kernels(
 
 import jax.numpy as jnp
 
+
 def lct_sampling_quick(x_in, x_out, lam, ABCD, eps=1e-30):
     """
     Quick sampling diagnostics for Collins LCT on separable grids.
@@ -221,26 +269,31 @@ def lct_sampling_quick(x_in, x_out, lam, ABCD, eps=1e-30):
     """
     a, b, c, d = [ABCD.reshape(-1)[i] for i in range(4)]
 
-    dx_in  = x_in[1] - x_in[0]
+    dx_in = x_in[1] - x_in[0]
     dx_out = x_out[1] - x_out[0]
-    X_in   = 0.5 * (x_in[-1] - x_in[0])
-    X_out  = 0.5 * (x_out[-1] - x_out[0])
+    X_in = 0.5 * (x_in[-1] - x_in[0])
+    X_out = 0.5 * (x_out[-1] - x_out[0])
 
     # Kernel phase: exp(-i 2π x x' /(λ b))
     # worst phase slope in x is at max |x'|
-    dphi_in_max  = (2*jnp.pi/(lam*jnp.abs(b)+eps)) * X_out * dx_in
-    dphi_out_max = (2*jnp.pi/(lam*jnp.abs(b)+eps)) * X_in  * dx_out
+    dphi_in_max = (2 * jnp.pi / (lam * jnp.abs(b) + eps)) * X_out * dx_in
+    dphi_out_max = (2 * jnp.pi / (lam * jnp.abs(b) + eps)) * X_in * dx_out
     p_kernel = jnp.pi / (jnp.maximum(dphi_in_max, dphi_out_max) + eps)
 
     # Pre/post chirps: phase ~ π a x^2 /(λ b), slope ~ 2π a x /(λ b)
-    dphi_pre_max  = (2*jnp.pi*jnp.abs(a)/(lam*jnp.abs(b)+eps)) * X_in  * dx_in
-    dphi_post_max = (2*jnp.pi*jnp.abs(d)/(lam*jnp.abs(b)+eps)) * X_out * dx_out
-    p_pre  = jnp.pi / (dphi_pre_max  + eps)
+    dphi_pre_max = (2 * jnp.pi * jnp.abs(a) / (lam * jnp.abs(b) + eps)) * X_in * dx_in
+    dphi_post_max = (
+        (2 * jnp.pi * jnp.abs(d) / (lam * jnp.abs(b) + eps)) * X_out * dx_out
+    )
+    p_pre = jnp.pi / (dphi_pre_max + eps)
     p_post = jnp.pi / (dphi_post_max + eps)
 
     return {"p_kernel": p_kernel, "p_pre": p_pre, "p_post": p_post}
 
-def lct_kernels(spec_in: Array | tuple, spec_out: Array | tuple, lam: float, ABCD: Array) -> tuple:
+
+def lct_kernels(
+    spec_in: Array | tuple, spec_out: Array | tuple, lam: float, ABCD: Array
+) -> tuple:
     x_in, y_in = unpack_coord_spec(spec_in)
     x_out, y_out = unpack_coord_spec(spec_out)
 
@@ -259,20 +312,39 @@ def lct_kernels(spec_in: Array | tuple, spec_out: Array | tuple, lam: float, ABC
 
     alpha = -2.0 * np.pi / (lam * b)
 
-    Kx, Ky = mft_kernels(spec_in=spec_in, spec_out=spec_out, alpha=alpha, weight=(dx_in, dy_in))
+    Kx, Ky = mft_kernels(
+        spec_in=spec_in, spec_out=spec_out, alpha=alpha, weight=(dx_in, dy_in)
+    )
 
     pref = 1.0 / (1j * lam * b)
     scale = np.sqrt((dx_out * dy_out) / (dx_in * dy_in))
     return pre, Kx, Ky, post, pref, scale
 
-def lct_kernel_prop(u_in: Array, pre: Array, Kx: Array, Ky: Array, post: Array, pref: complex, scale: float) -> Array:
+
+def lct_kernel_prop(
+    u_in: Array,
+    pre: Array,
+    Kx: Array,
+    Ky: Array,
+    post: Array,
+    pref: complex,
+    scale: float,
+) -> Array:
     u_tmp = pre * u_in
     u_mft = mft(u_tmp, Kx, Ky)
     return pref * scale * u_mft * post
 
-def lct_prop_basic(u_in: Array, spec_in: Array | tuple, spec_out: Array | tuple, lam: float, ABCD: Array) -> Array:
+
+def lct_prop_basic(
+    u_in: Array,
+    spec_in: Array | tuple,
+    spec_out: Array | tuple,
+    lam: float,
+    ABCD: Array,
+) -> Array:
     pre, Kx, Ky, post, pref, scale = lct_kernels(spec_in, spec_out, lam, ABCD)
     return lct_kernel_prop(u_in, pre, Kx, Ky, post, pref, scale)
+
 
 def lct_prop(
     u_in: Array,
@@ -302,6 +374,7 @@ def lct_prop(
 # A helper for model class (ABCD version)
 # ============================================================
 
+
 def propagate_mono_abcd(self, wavelength, offset=np.zeros(2), return_wf=False):
     import dLux as dl  # keep local
 
@@ -326,7 +399,7 @@ def propagate_mono_abcd(self, wavelength, offset=np.zeros(2), return_wf=False):
 
     # Output sampling: match your existing psf_pixel_scale (angular) via x = f * theta
     true_pixel_scale = self.psf_pixel_scale / self.oversample  # arcsec/pix
-    theta_pix = dlu.arcsec2rad(true_pixel_scale)               # rad/pix
+    theta_pix = dlu.arcsec2rad(true_pixel_scale)  # rad/pix
 
     N_out = self.psf_npixels * self.oversample
     dx_out = fl * theta_pix  # meters/pix at focal plane
@@ -343,4 +416,5 @@ def propagate_mono_abcd(self, wavelength, offset=np.zeros(2), return_wf=False):
         return wf_out
     return wf_out.psf
 
-print('abcdlux_patch module loaded successfully')
+
+print("abcdlux_patch module loaded successfully")
