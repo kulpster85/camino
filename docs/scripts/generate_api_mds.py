@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 DOCS_ROOT = ROOT / "docs"
 API_ROOT = DOCS_ROOT / "API"
-MKDOCS_FILE = ROOT / "mkdocs.yml"
+DOCS_CONFIG_FILE = ROOT / "mkdocs.yml"
 
 MODULE_GROUPS = {
     "camino": [
@@ -199,11 +199,11 @@ def render_api_nav_block(groups: dict[str, list[tuple[str, list[str]]]]) -> list
     return lines
 
 
-def update_mkdocs_nav(groups: dict[str, list[tuple[str, list[str]]]]) -> None:
-    if not MKDOCS_FILE.exists():
-        raise FileNotFoundError(f"mkdocs.yml not found: {MKDOCS_FILE}")
+def update_docs_nav(groups: dict[str, list[tuple[str, list[str]]]]) -> None:
+    if not DOCS_CONFIG_FILE.exists():
+        raise FileNotFoundError(f"mkdocs.yml not found: {DOCS_CONFIG_FILE}")
 
-    lines = MKDOCS_FILE.read_text(encoding="utf-8").splitlines(keepends=True)
+    lines = DOCS_CONFIG_FILE.read_text(encoding="utf-8").splitlines(keepends=True)
     api_re = re.compile(r"^(\s*)-\s+API:\s*$")
     start_index = None
     start_indent = 0
@@ -218,7 +218,7 @@ def update_mkdocs_nav(groups: dict[str, list[tuple[str, list[str]]]]) -> None:
     if start_index is None:
         lines.append("\n")
         lines.extend(new_block)
-        MKDOCS_FILE.write_text("".join(lines), encoding="utf-8")
+        DOCS_CONFIG_FILE.write_text("".join(lines), encoding="utf-8")
         return
 
     end_index = len(lines)
@@ -230,7 +230,7 @@ def update_mkdocs_nav(groups: dict[str, list[tuple[str, list[str]]]]) -> None:
             break
 
     new_lines = lines[:start_index] + new_block + lines[end_index:]
-    MKDOCS_FILE.write_text("".join(new_lines), encoding="utf-8")
+    DOCS_CONFIG_FILE.write_text("".join(new_lines), encoding="utf-8")
 
 
 def main() -> None:
@@ -260,7 +260,7 @@ def main() -> None:
                 encoding="utf-8",
             )
 
-    update_mkdocs_nav(MODULE_GROUPS)
+    update_docs_nav(MODULE_GROUPS)
     print("Generated API docs for camino and abcdlux_patch.")
 
 

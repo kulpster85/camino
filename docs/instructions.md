@@ -26,7 +26,7 @@ This will create a `.md` file alongside the notebook output in `docs/examples/`.
 - Keep headings concise and explain the workflow in plain language.
 - Move any large code blocks into a stable documentation section if they are central to the example.
 - If the notebook includes images, ensure they are copied into the docs tree or referenced via stable relative paths.
-- After conversion, review the final Markdown and keep the structure consistent with the rest of the mkdocs site.
+- After conversion, review the final Markdown and keep the structure consistent with the rest of the docs site.
 
 ## Typical final file pattern
 
