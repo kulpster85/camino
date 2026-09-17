@@ -7,13 +7,10 @@ used by the project. The imports are grouped into standard-library, third-party,
 and local modules for readability.
 """
 
-import glob
-import os
 import re
-import time
+from abc import abstractmethod
 from dataclasses import dataclass
 from importlib.resources import files
-from pathlib import Path
 from typing import Any
 
 import astropy.io.fits as fits
@@ -285,19 +282,6 @@ def _get_pupil_keyword(cal_fits_path: str):
     return None
 
 
-def _stage(msg: str, tprev: float | None):
-    """
-    Print stage header + timing since previous stage.
-    Returns new timestamp.
-    """
-    now = time.perf_counter()
-    if tprev is None:
-        print(f"\n== {msg} ==")
-    else:
-        print(f"\n== {msg} ==  (+{now - tprev:.2f}s)")
-    return now
-
-
 def extract_cutout(img, center, size, fill_value=None):
     """
     Extract a square cutout of given size centered on (y, x).
@@ -492,43 +476,6 @@ def cutout_around_defocused_psf(img, size=128, smooth_sigma=2.0, thresh_sigma=5.
     return cut, (y0, x0)
 
 
-def _find_existing_cals(download_dir: str, want_prefix: str, det_tag: str | None):
-    """
-    Search download_dir recursively for already-present *_cal.fits matching
-    the visit prefix (want_prefix), and optionally detector token.
-    Returns list of file paths.
-    """
-    # Search recursively; astroquery writes into mastDownload/... so this is safest.
-    pattern = os.path.join(
-        os.path.abspath(download_dir), "**", f"{want_prefix}*_cal.fits"
-    )
-    hits = glob.glob(pattern, recursive=True)
-
-    if det_tag:
-        det_hits = [p for p in hits if f"_{det_tag}_" in os.path.basename(p)]
-        if det_hits:
-            hits = det_hits
-
-    # de-dupe, keep stable order
-    hits = sorted(set(hits))
-    return hits
-
-
-def transfer_fn_old(coords, npixels, wavelength, pscale, distance):
-    """Legacy transfer-function reference that is intentionally not part of the public API."""
-    scaling = npixels * pscale**2
-    rho_sq = ((coords / scaling) ** 2).sum(0)
-    return _fftshift(jnp.exp(-1.0j * jnp.pi * wavelength * distance * rho_sq))
-
-
-def transfer_fn_patched(coords, npixels, wavelength, pscale, distance):
-    """Legacy patched transfer-function variant retained only for historical comparison."""
-    scaling = npixels * pscale**2
-    rho_sq = ((coords / scaling) ** 2).sum(0)
-    rho_sq_cycles = rho_sq / (2.0 * jnp.pi) ** 2
-    return _fftshift(jnp.exp(-1.0j * jnp.pi * wavelength * distance * rho_sq_cycles))
-
-
 def transfer_fn(coords, npixels, wavelength, pscale, distance):
     """Evaluate the active Fourier-domain transfer kernel used for the current propagation model."""
     del npixels, pscale
@@ -641,7 +588,8 @@ class Rotate:
         """Return coords shaped (2, n, n), centered, spanning `diameter` with pixel-center sampling."""
         step = self.diameter / n
         start = -self.diameter / 2.0 + step / 2.0
-        grid_1d = start + step * jnp.arange(n, dtype=jnp.float32)
+        dtype = jnp.result_type(jnp.asarray(self.diameter), jnp.float64)
+        grid_1d = start + step * jnp.arange(n, dtype=dtype)
         # indexing="ij": first axis varies along rows (axis0), second along cols (axis1)
         x, y = jnp.meshgrid(grid_1d, grid_1d, indexing="ij")
         return jnp.stack([x, y], axis=0)
@@ -679,13 +627,13 @@ class Rotate:
             raise ValueError(f"Rotate expects a square 2D array, got shape={img.shape}")
 
         n = img.shape[0]
-        angle = jnp.deg2rad(jnp.asarray(self.rotation_deg, dtype=jnp.float32))
+        dtype = jnp.result_type(img, jnp.float64)
+        angle = jnp.deg2rad(jnp.asarray(self.rotation_deg, dtype=dtype))
 
         coords = self._coords_centered_physical(n)  # (2,n,n) physical
         rot_coords = self._rotate_coords(coords, angle)  # (2,n,n) physical
         sample_coords = (
-            rot_coords
-            * jnp.array([1.0, self.anisotropy], dtype=jnp.float32)[:, None, None]
+            rot_coords * jnp.asarray([1.0, self.anisotropy], dtype=dtype)[:, None, None]
         )
 
         # map_coordinates wants coordinates in index space, shape (ndim, ...)
@@ -865,7 +813,7 @@ class PixelAnisotropy(dl.layers.detector_layers.DetectorLayer):
     order: int
 
     def __init__(self, order=3):
-        self.transform = dl.CoordTransform(compression=jnp.ones(2, dtype=jnp.float32))
+        self.transform = dl.CoordTransform(compression=jnp.ones(2, dtype=jnp.float64))
         self.order = int(order)
 
     def __getattr__(self, key):
@@ -970,9 +918,6 @@ def exposure_from_defocus_file(fname, fit, threshold=12000, crop=128):
     mjd = hdr["DATE"]
 
     return NIRCamExposure(filename, name, filter_name, data, mjd, err, fit, bad)
-
-
-from abc import abstractmethod
 
 
 def calc_throughput(filt, nwavels=1):
@@ -1083,26 +1028,6 @@ class ModelFit(zdx.Base):
             optics = optics.set("defocus", disp)
 
         return optics
-
-
-def update_optics(self, model, exposure):
-    """Apply the current model aberrations and defocus onto an optics object."""
-    optics = model.optics
-
-    if "aberrations" in model.params:
-        key = self.get_key(exposure, "aberrations")
-        opd_nm = model.aberrations[key]
-        pmask = (optics.layers["pupil"].transmission > 0).astype(jnp.float64)
-        mean_nm = jnp.sum(opd_nm * pmask) / (jnp.sum(pmask) + 1e-12)
-        opd_nm = opd_nm - mean_nm
-        opd_m = opd_nm * 1e-9
-        optics = optics.set("pupil.opd", opd_m)
-
-    if "defocus" in model.params:
-        disp = model.defocus[self.get_key(exposure, "defocus")]
-        optics = optics.set("defocus", disp)
-
-    return optics
 
 
 LOG10 = jnp.log(10.0)

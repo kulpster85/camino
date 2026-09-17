@@ -55,10 +55,10 @@ Any changes you make should also be appropriately documented! For small API chan
 To build the documentation locally and make sure everything is working correctly, you can run the following command:
 
 ```bash
-mkdocs serve
+zensical serve -f mkdocs.yml -a 127.0.0.1:8000 -o
 ```
 
-This will build the documentation and serve it on a local server. You can then navigate to `localhost:8000` in your browser to view the documentation.
+This will build the documentation with Zensical and serve it on a local preview server. You can then navigate to `http://127.0.0.1:8000` in your browser to view the documentation.
 
 ---
 
