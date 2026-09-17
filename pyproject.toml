@@ -45,7 +45,6 @@ dev = [
   "pre-commit",
   "zensical",
   "mkdocstrings-python",
-  "mike",
   "nbconvert",
   "jupyter",
 ]

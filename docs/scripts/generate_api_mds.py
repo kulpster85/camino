@@ -238,11 +238,6 @@ def main() -> None:
     for module_name, entries in MODULE_GROUPS.items():
         module_dir = API_ROOT / module_name
         module_dir.mkdir(parents=True, exist_ok=True)
-        overview = module_dir / "overview.md"
-        overview.write_text(
-            f"# {TITLE_MAP.get(module_name, module_name.replace('_', ' ').title())}\n\n",
-            encoding="utf-8",
-        )
 
         source_path = ROOT / f"{module_name}.py"
         source_symbols = parse_public_symbols(source_path)
