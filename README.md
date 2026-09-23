@@ -23,16 +23,22 @@ pip install jwst-camino
 You can also build from source:
 
 ```bash
-git clone https://github.com/your-org/camino.git
+git clone https://github.com/kulpster85/camino.git
 cd camino
-python -m pip install -e .
+python -m pip install -e '.[dev]'
 ```
 
 We recommend using a virtual environment to avoid dependency conflicts.
 
 ## Use & Documentation
 
-The project documentation is being assembled in the `docs/` tree and includes placeholders for the landing page, concepts page, worked example, and API reference.
+The documentation now includes:
+
+- a [How to run CAMINO](docs/how_to_run.md) guide
+- a runnable [quickstart notebook](docs/examples/camino_quickstart.ipynb)
+- a short [worked example overview](docs/examples/worked_example.md)
+
+The how-to also explains how CAMINO relates to `dLux` and how to run the dLux getting-started tutorial in the same environment.
 
 ## Collaboration & Development
 
